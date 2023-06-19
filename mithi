@@ -1,0 +1,146 @@
+import java.io.*;
+import java.util.*;
+
+class Page {
+    private int pageNumber;
+    private List<String> words;
+
+    public Page(int pageNumber) {
+        this.pageNumber = pageNumber;
+        this.words = new ArrayList<>();
+    }
+
+    public int getPageNumber() {
+        return pageNumber;
+    }
+
+    public void addWord(String word) {
+        words.add(word);
+    }
+
+    public List<String> getWords() {
+        return words;
+    }
+}
+
+class WordIndex {
+    private Map<String, Set<Integer>> index;
+
+    public WordIndex() {
+        this.index = new TreeMap<>();
+    }
+
+    public void addWord(String word, int pageNumber) {
+        Set<Integer> pages = index.getOrDefault(word, new HashSet<>());
+        pages.add(pageNumber);
+        index.put(word, pages);
+    }
+
+    public void displayIndex() {
+        for (String word : index.keySet()) {
+            Set<Integer> pages = index.get(word);
+            System.out.print(word + " : ");
+            StringBuilder sb = new StringBuilder();
+            for (int pageNumber : pages) {
+                sb.append(pageNumber).append(",");
+            }
+            sb.deleteCharAt(sb.length() - 1);
+            System.out.println(sb.toString());
+        }
+    }
+}
+
+class FileReader {
+    public static String readFile(String filePath) throws IOException {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+        }
+        return content.toString();
+    }
+}
+
+class FileWriter {
+    public static void writeFile(String filePath, String content) throws IOException {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(filePath))) {
+            bw.write(content);
+        }
+    }
+}
+
+class BookIndexer {
+    private List<Page> pages;
+    private WordIndex wordIndex;
+
+    public BookIndexer() {
+        this.pages = new ArrayList<>();
+        this.wordIndex = new WordIndex();
+    }
+
+    public void readPages(String[] pageFiles) throws IOException {
+        for (int i = 0; i < pageFiles.length; i++) {
+            String content = FileReader.readFile(pageFiles[i]);
+            Page page = new Page(i + 1);
+            String[] words = content.split("\\s+");
+            for (String word : words) {
+                page.addWord(word.toLowerCase());
+            }
+            pages.add(page);
+        }
+    }
+
+    public void readExcludeWords(String excludeFile) throws IOException {
+        String content = FileReader.readFile(excludeFile);
+        String[] words = content.split("\\s+");
+        for (String word : words) {
+            wordIndex.addWord(word.toLowerCase(), -1);
+        }
+    }
+
+    public void createIndex() {
+        for (Page page : pages) {
+            int pageNumber = page.getPageNumber();
+            List<String> words = page.getWords();
+            for (String word : words) {
+                wordIndex.addWord(word, pageNumber);
+            }
+        }
+    }
+
+    public void writeIndexToFile(String indexFile) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        for (String word : wordIndex.getIndex().keySet()) {
+            Set<Integer> pages = wordIndex.getIndex().get(word);
+            sb.append(word).append(" : ");
+            StringBuilder pageNumbers = new StringBuilder();
+            for (int pageNumber : pages) {
+                pageNumbers.append(pageNumber).append(",");
+            }
+            pageNumbers.deleteCharAt(pageNumbers.length() - 1);
+            sb.append(pageNumbers.toString()).append("\n");
+        }
+        FileWriter.writeFile(indexFile, sb.toString());
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        BookIndexer bookIndexer = new BookIndexer();
+        String[] pageFiles = {"Page1.txt", "Page2.txt", "Page3.txt"};
+        String excludeFile = "exclude-words.txt";
+        String indexFile = "index.txt";
+
+        try {
+            bookIndexer.readPages(pageFiles);
+            bookIndexer.readExcludeWords(excludeFile);
+            bookIndexer.createIndex();
+            bookIndexer.writeIndexToFile(indexFile);
+            System.out.println("Index created successfully!");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
